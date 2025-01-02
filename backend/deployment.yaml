@@ -3,28 +3,28 @@ kind: Deployment
 metadata:
   name: backend
 spec:
-  replicas: 2
+  replicas: 2 # Tạo 2 bản sao (pod) của ứng dụng.
   selector:
     matchLabels:
-      role: backend
+      role: backend #Xác định các pod với nhãn role: backend sẽ được quản lý bởi Deployment.
   template:
     metadata:
       labels:
-        role: backend
+        role: backend # Gán nhãn role: backend cho các pod được tạo bởi template này.
     spec:
-      serviceAccountName: backend-sa
-      nodeSelector:
+      serviceAccountName: backend-sa # Sử dụng Service Account có tên backend-sa
+      nodeSelector: # Chỉ định các node phù hợp với nhãn iam.gke.io/gke-metadata-server-enabled: "true" để chạy pod này.
         iam.gke.io/gke-metadata-server-enabled: "true"
-      containers:
-        - name: backend
-          image: todoapp-backend:latest
-          imagePullPolicy: Always
-          env:
+      containers: # Container chính (backend)
+        - name: backend # Tên container là backend.
+          image: todoapp-backend:latest # Sử dụng image todoapp-backend:latest
+          imagePullPolicy: Always # Luôn tải lại image từ registry mỗi khi khởi động pod.
+          env: # Định nghĩa các biến môi trường
             - name: DB_HOST
               value: 127.0.0.1:3306
             - name: DB_USER
               valueFrom:
-                secretKeyRef:
+                secretKeyRef: # Lấy giá trị từ Secret có tên db-credentials
                   name: db-credentials
                   key: user
             - name: DB_PASSWORD
@@ -33,27 +33,27 @@ spec:
                   name: db-credentials
                   key: password
             - name: LOG_LEVEL
-              value: debug
+              value: debug # Đặt mức độ log là debug
           ports:
-            - containerPort: 8080
-          livenessProbe:
+            - containerPort: 8080 # Container lắng nghe ở cổng 8080
+          livenessProbe: # Cấu hình kiểm tra sức khỏe
             httpGet:
               path: /healthz
-              port: 8080
-            initialDelaySeconds: 3
-            periodSeconds: 3
-        - name: cloudsql-proxy
-          image: gcr.io/cloudsql-docker/gce-proxy:1.11
+              port: 8080 # Gửi yêu cầu HTTP đến /healthz ở cổng 8080
+            initialDelaySeconds: 3 # Đợi 3 giây trước khi thực hiện kiểm tra đầu tiên
+            periodSeconds: 3 # Thực hiện kiểm tra sức khỏe mỗi 3 giây
+        - name: cloudsql-proxy # Tên container phụ là cloudsql-proxy
+          image: gcr.io/cloudsql-docker/gce-proxy:1.11 # Sử dụng image gcr.io/cloudsql-docker/gce-proxy:1.11 để kết nối với Cloud SQL
           command:
             - /cloud_sql_proxy
-            - -instances=$(INSTANCES)=tcp:3306
-          env:
+            - -instances=$(INSTANCES)=tcp:3306 # Chạy lệnh /cloud_sql_proxy với thông số -instances=$(INSTANCES)=tcp:3306
+          env: # biến môi trường
             - name: INSTANCES 
               valueFrom:
                 secretKeyRef:
-                  name: db-credentials
+                  name: db-credentials # Lấy từ Secret db-credentials với key connection_name
                   key: connection_name
           securityContext:
-            runAsUser: 2
-            allowPrivilegeEscalation: false
-      restartPolicy: Always
+            runAsUser: 2 # Chạy container với user ID là 2
+            allowPrivilegeEscalation: false # không cho phép leo thang quyền
+      restartPolicy: Always # Đảm bảo pod luôn khởi động lại nếu bị lỗi
